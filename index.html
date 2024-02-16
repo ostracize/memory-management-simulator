@@ -18,10 +18,19 @@
 	</div>
 
 	<div id="leftContainer">
+		<h2>Control</h2>
+		<input type="checkbox" id="firstFit">Use First Fit (not Best Fit)</input><br />
+		<input type="checkbox" id="fragmentation">Allow Internal Fragmentation (Disable Partitioning)</input><br />
+		<input type="checkbox" id="compaction">Use Compaction</input><br />
+		<h2>Fragmentation</h2>
+		<table>
+			<tr><td>Internal</td><td id="internalFragmentation">0</td></tr>
+			<tr><td>External</td><td id="externalFragmentation">0</td></tr>
+		</table>
 		<h2>Add Process</h2>
 		<form id="processForm">
-			<input type="text" name="processSize" placeholder="Process size" autocomplete="off" />
-			<input type="text" name="processTime" placeholder="Process time" autocomplete="off" />
+			<input type="text" id="ProcessSize" name="processSize" placeholder="Process size" autocomplete="off" autofocus />
+			<input type="text" id="ProcessTime" name="processTime" placeholder="Process time" autocomplete="off" />
 			<button type="submit" style="display:none;" /></button>
 		</form>
 		<br><br>

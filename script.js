@@ -41,7 +41,7 @@ function Heap() {
 
 	// Allocate process to memory.
 	// Use best-fit method: from the list of holes, choose the smallest hole
-	this.requestAllocation = function(process) {
+	this.requestAllocation = function(process, firstFit, fragmentation) {
 		blockBestFit = this.head;
 
 		// Make sure our initial best block is valid
@@ -51,45 +51,57 @@ function Heap() {
 		};
 		//log("Initial best block: " + blockBestFit.size);
 
-		// See if there's an even better block
-		block = blockBestFit.next;
-		while (block != null) {
-			//log("Testing block: " + block.size);
-			if ((block.size >= process.size) && (block.available) && (block.size < blockBestFit.size)) {
-				blockBestFit = block;
-				//log("New best block: " + blockBestFit.size);
+		// If firstFit requested, then no need to find a better block
+		if (!firstFit){
+			// See if there's an even better block
+			block = blockBestFit.next;
+			while (block != null) {
+				//log("Testing block: " + block.size);
+				if ((block.size >= process.size) && (block.available) && (block.size < blockBestFit.size)) {
+					blockBestFit = block;
+					//log("New best block: " + blockBestFit.size);
+				};
+				block = block.next;
 			};
-			block = block.next;
 		};
 
 		spaceLeftover = blockBestFit.size - (process.size + memControlBlockSize); // Space leftover if block was divided
 
-		// Partition block if needed
-		if (spaceLeftover > 0) {
-			newBlock = new MemControlBlock(spaceLeftover);
+		if (!fragmentation){
+			// Partition block if needed
+			if (spaceLeftover > 0) {
+				newBlock = new MemControlBlock(spaceLeftover);
 
-			nextBlock = blockBestFit.next;
-			if (nextBlock != null) {
-				nextBlock.prev = newBlock;
-				newBlock.next = nextBlock;
+				nextBlock = blockBestFit.next;
+				if (nextBlock != null) {
+					nextBlock.prev = newBlock;
+					newBlock.next = nextBlock;
+				};
+
+				blockBestFit.next = newBlock;
+				newBlock.prev = blockBestFit;
+
+				blockBestFit.size = process.size;
+
+				newBlock.fromPartition = true;
 			};
-
-			blockBestFit.next = newBlock;
-			newBlock.prev = blockBestFit;
-
-			blockBestFit.size = process.size;
-
-			newBlock.fromPartition = true;
+		}
+		else{
+			document.getElementById("internalFragmentation").innerHTML = spaceLeftover + parseInt(document.getElementById("internalFragmentation").innerHTML);
 		};
 
 		blockBestFit.setProcess(process);
 		process.allocatedBlock = blockBestFit;
+
+		document.getElementById("externalFragmentation").innerHTML = heap.getExternalFragmentation();
 		return true;
 	};
 
 	this.deallocateProcess = function(process) {
+		document.getElementById("internalFragmentation").innerHTML = parseInt(document.getElementById("internalFragmentation").innerHTML) - process.allocatedBlock.size + process.size;
 		process.allocatedBlock.setProcess(null);
 		process.allocatedBlock = null;
+		document.getElementById("externalFragmentation").innerHTML = heap.getExternalFragmentation();
 	};
 
 	this.add = function(block) {
@@ -103,6 +115,39 @@ function Heap() {
 
 		this.size += block.size;
 	}
+
+	this.getExternalFragmentation = function() {
+		block = this.head;
+		space = 0;
+		while (block != null) {
+			if (block.available){
+				space += block.size
+			};
+			block = block.next;
+		};
+		return space;
+	};
+
+	//TODO: Make this properly use add/remove
+	this.compact = function() {
+		block = this.head;
+		space = 0;
+		while (block != null) {
+			if (block.available) {
+				// Save the total space and remove the block
+				space += block.size;
+				this.size -= block.size;
+				if (block == this.head){
+					this.head = block.next
+				}
+				else {
+					block.prev.next = block.next
+				}
+			};
+			block = block.next;
+		};
+		this.add(new MemControlBlock(space));
+	};
 
 	this.toString = function() {
 		string = "[|";
@@ -143,6 +188,9 @@ function Heap() {
 			blockLabel.setAttribute("id", "blockLabel");
 			blockLabel.style.height = (height + "%");
 			blockLabel.innerHTML = block.size + "K";
+			if (block.process != null && height > 10){
+				blockLabel.innerHTML += "<br />Process ID: "+ block.process.id;
+			};
 			if (height <= 2) {
 				blockLabel.style.display = "none";
 			};
@@ -220,12 +268,16 @@ var logBox = document.getElementById("logBox");
 var memoryDiv = document.getElementById("memory");
 var processTable = document.getElementById("processTable");
 
-var memControlBlockSize = 16;
-var processID = 0;
+var memControlBlockSize = 0;
+var processID = 1;
 var processes = [];
 
 heap = new Heap();
-blockSizes = [256,256,256,256];
+blockSizes = [450,150,70,50,300,200];
+
+compaction = false;
+firstFit = false;
+fragmentation = false;
 
 for (i=0; i<blockSizes.length; i++) {
 	heap.add(new MemControlBlock(blockSizes[i]));
@@ -241,7 +293,12 @@ var clock = setInterval(function() {
 		process = processes[i];
 
 		if (!process.isAllocated()) {
-			heap.requestAllocation(process);
+			if (!heap.requestAllocation(process, firstFit, fragmentation)){
+				if (compaction){
+					heap.compact();
+				};
+			};
+			document.getElementById("ProcessSize").focus()
 		} else {
 			process.tick();
 			if (process.timeLeft < 1) {
@@ -259,6 +316,9 @@ var clock = setInterval(function() {
 			};
 		};
 	};
+	firstFit = document.getElementById("firstFit").checked;
+	fragmentation = document.getElementById("fragmentation").checked;
+	compaction = document.getElementById("compaction").checked;
 
 	refreshTable();
 	heap.repaint();
