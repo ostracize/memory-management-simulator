@@ -141,7 +141,10 @@ function Heap() {
 					this.head = block.next
 				}
 				else {
-					block.prev.next = block.next
+					block.prev.next = block.next;
+					if (block.next){
+						block.next.prev = block.prev;
+					};
 				}
 			};
 			block = block.next;
